@@ -23,7 +23,7 @@ public:
 	using size_type = std::size_t;
 	using reference = value_type &;
 	using const_reference = const value_type &;
-	using listIterator = typename std::list<value_type>::iterator;
+	using listIterator = typename std::list<value_type>::const_iterator;
 
 	class ConstIterator;
 
@@ -163,49 +163,62 @@ public:
 
 	mapped_type &valueOf(const key_type &key)
 	{
-		return const_cast<mapped_type&>(static_cast<const HashMap>(*this).valueOf(key));
+		auto it = find(key);
+
+		if(it == end())
+			throw std::out_of_range("key doesn't exist");
+
+		return it->second;
 	}
 
 	const_iterator find(const key_type &key) const
 	{
 		size_t index = key % HASH;
-		int i = 0;
-		for(auto elem : table[index])
+
+		for(auto it = table[index].begin(); it != table[index].end(); ++it)
 		{
-			if(elem.first == key)
-				return ConstIterator(this, index, i);
-			++i;
+			if(it->first == key)
+				return ConstIterator(this, index, it);
 		}
+
 		return cend();
 	}
 
 	iterator find(const key_type &key)
 	{
-		return Iterator( (static_cast<const HashMap>(*this)).find(key) );
+		//return Iterator( (static_cast<const HashMap *>(this))->find(key) );
+
+		size_t index = key % HASH;
+
+		for(auto it = table[index].begin(); it != table[index].end(); ++it)
+		{
+			if(it->first == key)
+				return Iterator(ConstIterator(this, index, it));
+		}
+
+		return end();
 	}
 
 	void remove(const key_type &key)
 	{
-//		size_t index = key % HASH;
-//
-//		if(table[index].size() == 0)
-//			throw std::out_of_range("Key not found");
-//
-//		auto it = find(key);
-//		if(it == end())
-//			throw std::out_of_range("Key not found");
-//
-//		table[it.hashIndex].erase(table[it.hashIndex].begin() + it.innerIndex);
-//		--addedElements;
-		(void)key;
-		throw std::runtime_error("TODO");
+		auto it = find(key);
+		remove(it);
+
 	}
 
 	void remove(const const_iterator &it)
 	{
-//		remove(it->first);
-		(void)it;
-		throw std::runtime_error("TODO");
+		size_t index = it.hashIndex;
+
+		if(it == end())
+			throw std::out_of_range("out of range");
+
+		auto position = it.currentIterator;
+
+		table[index].erase(position);
+		--addedElements;
+//		(void)it;
+//		throw std::runtime_error("TODO");
 	}
 
 	size_type getSize() const
@@ -215,6 +228,12 @@ public:
 
 	bool operator==(const HashMap &other) const
 	{
+		if(addedElements != other.addedElements)
+			return false;
+
+		if(addedElements == 0 && other.addedElements == 0)
+			return true;
+
 		auto it = begin();
 
 		for(auto elem : other)
@@ -223,6 +242,8 @@ public:
 			{
 				return false;
 			}
+			++it;
+
 		}
 		return true;
 	}
@@ -234,12 +255,12 @@ public:
 
 	iterator begin()
 	{
-		throw Iterator(cbegin());
+		return Iterator(cbegin());
 	}
 
 	iterator end()
 	{
-		throw Iterator(cend());
+		return Iterator(cend());
 	}
 
 	const_iterator cbegin() const
@@ -256,6 +277,7 @@ public:
 				return ConstIterator(this, firstEntry, table[firstEntry].begin());
 			}
 		}
+		return cend();
 	}
 
 	const_iterator cend() const
@@ -291,7 +313,7 @@ private:
 	size_t hashIndex = 0;
 	listIterator currentIterator;
 
-	std::list<value_type> &getTable() const
+	const std::list<value_type> &getTable()
 	{ return map->table[hashIndex]; }
 
 public:
@@ -322,7 +344,7 @@ public:
 
 			if(hashIndex == map->buckets)
 			{
-				currentIterator = map->end();
+				*this = map->end();
 				return *this;
 			}
 
@@ -353,11 +375,13 @@ public:
 			currentIterator = getTable().end();
 		}
 
-		while(currentIterator == getTable().end())
+		while(currentIterator == getTable().begin())
 		{
-
+			--hashIndex;
+			currentIterator = getTable().end();
 		}
 
+		--currentIterator;
 		return *this;
 	}
 
@@ -370,6 +394,10 @@ public:
 
 	reference operator*() const
 	{
+		if(hashIndex == map->buckets)
+			throw std::out_of_range("out of range");
+
+		return *currentIterator;
 	}
 
 	pointer operator->() const
@@ -379,7 +407,7 @@ public:
 
 	bool operator==(const ConstIterator &other) const
 	{
-
+		return hashIndex == other.hashIndex && currentIterator == other.currentIterator;
 	}
 
 	bool operator!=(const ConstIterator &other) const

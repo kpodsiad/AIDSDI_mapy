@@ -34,19 +34,20 @@ int main(int argc, char** argv)
   (void)argc;
   (void)argv;
 
-  std::vector< std::vector<std::pair<int,int> > > vector;
-  vector.resize(10);
-  for (int i = 0; i < 10 ; ++i)
-  {
-    vector[i].push_back({i,i});
-    vector[i].push_back({i+5,i+5});
-    vector[i].push_back({i+10,i+10});
-  }
+  Map<int,std::string> map = { { 42, "Chuck" }, { 27, "Bob" } };
+  //Map<int,int> other = {};
 
-//  auto x = vector[0].at(0);
-//  auto y = vector[0][1];
-  vector[0].erase(vector[0].end()+1);
+  auto it = map.find(42);
+  it->second = "Alice";
+  auto begin = map.begin();
+  auto end = map.end();
 
+
+
+  auto x = begin == end;
+
+  if(x)
+    std::cout<<"hehe";
   perfomTest();
   return 0;
 }
