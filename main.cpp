@@ -31,23 +31,27 @@ int main(int argc, char** argv)
 //  for (std::size_t i = 0; i < repeatCount; ++i)
 //    perfomTest();
 
+//avl<int,int> tree = {{1,5},{2,10}}, tree2 = {{1,10},{2,5}};
+//tree.root = tree.insert(tree.root, {5,5});
+//tree.root = tree.insert(tree.root, {3,3});
+//tree.root = tree.insert(tree.root, {4,4});
+//tree.root = tree.insert(tree.root, {1,1});
+//auto it = tree.begin();
+//auto it2 = tree.end();
+//--it2;
+
+
+//tree.root = tree.deleteNode(tree.root, 1);
+
+//tree[int{}] = int{};
+
+Map<int, int> map;
+  map[int{}] = int{};
+
+
   (void)argc;
   (void)argv;
 
-  Map<int,std::string> map = { { 42, "Chuck" }, { 27, "Bob" } };
-  //Map<int,int> other = {};
-
-  auto it = map.find(42);
-  it->second = "Alice";
-  auto begin = map.begin();
-  auto end = map.end();
-
-
-
-  auto x = begin == end;
-
-  if(x)
-    std::cout<<"hehe";
   perfomTest();
   return 0;
 }

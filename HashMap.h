@@ -8,7 +8,7 @@
 #include <list>
 #include <vector>
 
-#define DEF_CAPACITY 1024
+#define DEF_CAPACITY 1193
 
 namespace aisdi
 {
@@ -32,8 +32,6 @@ public:
 	using iterator = Iterator;
 	using const_iterator = ConstIterator;
 
-
-	size_t HASH = DEF_CAPACITY;
 	size_t buckets = DEF_CAPACITY;
 	size_t addedElements = 0;
 	std::vector< std::list<value_type> >table;
@@ -41,39 +39,14 @@ public:
 
 	void insert(value_type value)
 	{
-		size_t index = value.first % HASH;;
+		size_t index = std::hash<key_type>{}(value.first) % buckets;
 		table[index].push_back(value);
 		++addedElements;
 	}
 
-	size_t lastHashEntry() const
+	size_t myHash(const key_type &key) const
 	{
-		size_t lastEntry = buckets;
-
-		for (size_t i = buckets-1; i > 0 ; --i)
-		{
-			if(table[i].size() != 0)
-			{
-				lastEntry = i;
-				break;
-			}
-		}
-		return lastEntry;
-	}
-
-	size_t firstHashEntry() const
-	{
-		size_t lastEntry = buckets;
-
-		for (size_t i = 0; i < buckets ; ++i)
-		{
-			if(table[i].size() != 0)
-			{
-				lastEntry = i;
-				break;
-			}
-		}
-		return lastEntry;
+		return std::hash<key_type >{}(key) % buckets;
 	}
 
 public:
@@ -83,7 +56,7 @@ public:
 		table.resize(buckets);
 	}
 
-	HashMap(size_t HASH, size_t buckets):HASH(HASH), buckets(buckets)
+	HashMap(size_t buckets) : buckets(buckets)
 	{
 		table.resize(buckets);
 	}
@@ -94,15 +67,16 @@ public:
 			insert(elem);
 	}
 
-	HashMap(const HashMap &other) :HashMap(other.HASH, other.buckets)
+	HashMap(const HashMap &other) : HashMap(other.buckets)
 	{
 		for(auto elem : other)
 			insert(elem);
 	}
 
-	HashMap(HashMap &&other): HASH(other.HASH), buckets(other.buckets), addedElements(other.addedElements)
+	HashMap(HashMap &&other)// : buckets(other.buckets), addedElements(other.addedElements)
 	{
-		table = std::move(other.table);
+		//table = std::move(other.table);
+		*this = std::move(other);
 	}
 
 	HashMap &operator=(const HashMap &other)
@@ -110,7 +84,6 @@ public:
 		if(this != &other)
 		{
 			table.clear();
-			HASH = other.HASH;
 			buckets = other.buckets;
 			table.resize(buckets);
 			addedElements = 0;
@@ -123,14 +96,10 @@ public:
 
 	HashMap &operator=(HashMap &&other)
 	{
-		if(this != &other)
-		{
-			table.clear();
-			HASH = other.HASH;
-			buckets = other.buckets;
-			addedElements = other.addedElements;
-			table = std::move(other.table);
-		}
+		buckets = std::move(other.buckets);
+		addedElements = std::move(other.addedElements);
+		table = std::move(other.table);
+
 		return *this;
 	}
 
@@ -144,8 +113,9 @@ public:
 		auto it = find(key);
 		if(it == cend())
 		{
-			insert({key, mapped_type{}});
-			return table[key % HASH].back().second;
+			insert( {key, mapped_type{}} );
+			auto index = myHash(key);
+			return table[index].back().second;
 		}
 		else
 			return it->second;
@@ -173,7 +143,7 @@ public:
 
 	const_iterator find(const key_type &key) const
 	{
-		size_t index = key % HASH;
+		size_t index = myHash(key);
 
 		for(auto it = table[index].begin(); it != table[index].end(); ++it)
 		{
@@ -186,9 +156,7 @@ public:
 
 	iterator find(const key_type &key)
 	{
-		//return Iterator( (static_cast<const HashMap *>(this))->find(key) );
-
-		size_t index = key % HASH;
+		size_t index = myHash(key);
 
 		for(auto it = table[index].begin(); it != table[index].end(); ++it)
 		{
@@ -203,7 +171,6 @@ public:
 	{
 		auto it = find(key);
 		remove(it);
-
 	}
 
 	void remove(const const_iterator &it)
@@ -217,8 +184,6 @@ public:
 
 		table[index].erase(position);
 		--addedElements;
-//		(void)it;
-//		throw std::runtime_error("TODO");
 	}
 
 	size_type getSize() const
@@ -234,16 +199,11 @@ public:
 		if(addedElements == 0 && other.addedElements == 0)
 			return true;
 
-		auto it = begin();
-
 		for(auto elem : other)
 		{
-			if(*it != elem)
-			{
+			auto it = find(elem.first);
+			if( it == end() || *it != elem )
 				return false;
-			}
-			++it;
-
 		}
 		return true;
 	}
@@ -311,10 +271,12 @@ public:
 private:
 	const HashMap *map = nullptr;
 	size_t hashIndex = 0;
-	listIterator currentIterator;
+	listIterator currentIterator = {};
 
 	const std::list<value_type> &getTable()
-	{ return map->table[hashIndex]; }
+	{
+		return map->table[hashIndex];
+	}
 
 public:
 
@@ -322,12 +284,11 @@ public:
 
 	ConstIterator(const HashMap *map, size_t hashIndex, listIterator currentIterator={})
 			: map(map), hashIndex(hashIndex), currentIterator(currentIterator)
-	{
-	}
-		ConstIterator(const ConstIterator &other)
-	: map(other.map), hashIndex(other.hashIndex), currentIterator(other.currentIterator)
-	{
-	}
+	{}
+
+	ConstIterator(const ConstIterator &other)
+			: map(other.map), hashIndex(other.hashIndex), currentIterator(other.currentIterator)
+	{}
 
 	ConstIterator &operator++()
 	{
@@ -338,19 +299,17 @@ public:
 			throw std::out_of_range("iterator out of range");
 
 		++currentIterator;
-		while(currentIterator == getTable().end())
+		while( currentIterator == getTable().end() ) //skip lists which size is 0
 		{
 			++hashIndex;
 
-			if(hashIndex == map->buckets)
+			if(hashIndex == map->buckets) //if incrementing iterator pointing to last element
 			{
 				*this = map->end();
 				return *this;
 			}
-
 			currentIterator = getTable().begin();
 		}
-
 		return *this;
 	}
 
@@ -375,13 +334,13 @@ public:
 			currentIterator = getTable().end();
 		}
 
-		while(currentIterator == getTable().begin())
+		while( currentIterator == getTable().begin() ) //while end == begin skip this list
 		{
 			--hashIndex;
 			currentIterator = getTable().end();
 		}
 
-		--currentIterator;
+		--currentIterator; //decrement from end to last element in list
 		return *this;
 	}
 
@@ -407,7 +366,7 @@ public:
 
 	bool operator==(const ConstIterator &other) const
 	{
-		return hashIndex == other.hashIndex && currentIterator == other.currentIterator;
+		return currentIterator == other.currentIterator;
 	}
 
 	bool operator!=(const ConstIterator &other) const
