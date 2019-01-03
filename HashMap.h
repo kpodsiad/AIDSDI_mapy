@@ -8,7 +8,7 @@
 #include <list>
 #include <vector>
 
-#define DEF_CAPACITY 1193
+#define DEF_CAPACITY 108881
 
 namespace aisdi
 {
@@ -100,7 +100,6 @@ public:
 		buckets = std::move(other.buckets);
 		addedElements = std::move(other.addedElements);
 		table = std::move(other.table);
-
 		return *this;
 	}
 
@@ -151,7 +150,6 @@ public:
 			if(it->first == key)
 				return ConstIterator(this, index, it);
 		}
-
 		return cend();
 	}
 
@@ -164,7 +162,6 @@ public:
 			if(it->first == key)
 				return Iterator(ConstIterator(this, index, it));
 		}
-
 		return end();
 	}
 
@@ -197,9 +194,6 @@ public:
 		if(addedElements != other.addedElements)
 			return false;
 
-		if(addedElements == 0 && other.addedElements == 0)
-			return true;
-
 		for(auto elem : other)
 		{
 			auto it = find(elem.first);
@@ -228,15 +222,10 @@ public:
 	{
 		if(addedElements == 0)
 			return cend();
-
-		size_t firstEntry = buckets;
 		for (size_t i = 0; i < buckets ; ++i)
 		{
 			if(table[i].size() != 0)
-			{
-				firstEntry = i;
-				return ConstIterator(this, firstEntry, table[firstEntry].begin());
-			}
+				return ConstIterator(this, i, table[i].begin() );
 		}
 		return cend();
 	}
@@ -367,6 +356,11 @@ public:
 
 	bool operator==(const ConstIterator &other) const
 	{
+		if(hashIndex != other.hashIndex)
+			return false;
+		if(hashIndex == map->buckets && other.hashIndex == map->buckets)
+			return true;
+
 		return currentIterator == other.currentIterator;
 	}
 

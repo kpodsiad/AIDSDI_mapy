@@ -30,12 +30,23 @@ public:
 	using iterator = Iterator;
 	using const_iterator = ConstIterator;
 
-public:
+	void print()
+	{
+		print(root);
+	}
+
+private:
+	class Node;
+
+	size_t size{0};
+	Node *root{nullptr};
+
 	class Node
 	{
 		friend class TreeMap;
+
 	private:
-		value_type value{};
+		value_type *value{nullptr};
 		Node *left{nullptr};
 		Node *right{nullptr};
 		int height{1};
@@ -56,29 +67,40 @@ public:
 
 	public:
 
-		explicit Node(const value_type &value) : value(value)
-		{}
-
-		Node &operator=(Node &other)
+		explicit Node(const value_type &value)
 		{
-			value = other.value;
-			return *this;
+			this->value = new value_type{value};
+		}
+
+		~Node()
+		{
+			delete value;
 		}
 
 		const key_type &getKey() const
 		{
-			return value.first;
+			return value->first;
+		}
+
+		bool operator==(const Node &other)
+		{
+			return *value == *other.value;
+		}
+
+		bool operator!=(const Node &other)
+		{
+			return !(this->operator==(other));
 		}
 
 		void updateHeight()
 		{
-			if( hasBothChildren() )
+			if(hasBothChildren() )
 				this->height = 1 + max( this->left->height, this->right->height );
 
-			else if( hasLeftChild() )
+			else if(hasLeftChild() )
 				this->height = 1 + this->left->height;
 
-			else if( hasRightChild() )
+			else if(hasRightChild() )
 				this->height = 1 + this->right->height;
 
 			else //doesn't have children
@@ -88,12 +110,12 @@ public:
 		int getBalanceFactor()
 		{
 			if(hasBothChildren() )
-				return this->left->height - this->right->height;
+				return (this->left->height - this->right->height);
 
-			else if( hasLeftChild() )
+			else if(hasLeftChild() )
 				return this->left->height;
 
-			else if ( hasRightChild() )
+			else if(hasRightChild() )
 				return -1*this->right->height;
 
 			else //doesn't have children
@@ -115,28 +137,29 @@ public:
 				temp = temp->left;
 			return temp;
 		}
-
-
 	};//node class
-
-		size_t size{0};
-		Node *root{nullptr};
 
 		void print(Node *node)
 		{
 			if(node == nullptr)
-				return;;
+				return;
 
 			if(node->left == nullptr && node->right == nullptr)
-				std::cout<<node->value.first<<"->("<<"null"<<","<<"null"<<")"<<"\n";
+				std::cout<<node->value->first<<"->("<<"null"<<","<<"null"<<")"<<"\n";
 			else if(node->left != nullptr && node->right != nullptr)
-				std::cout<<node->value.first<<"->("<<node->left->value.first<<","<<node->right->value.first<<")"<<"\n";
+				std::cout<<node->value->first<<"->("<<node->left->value->first<<","<<node->right->value->first<<")"<<"\n";
 			else if(node->left != nullptr)
-				std::cout<<node->value.first<<"->("<<node->left->value.first<<","<<"null"<<")"<<"\n";
+				std::cout<<node->value->first<<"->("<<node->left->value->first<<","<<"null"<<")"<<"\n";
 			else
-				std::cout<<node->value.first<<"->("<<"null"<<","<<node->right->value.first<<")"<<"\n";
+				std::cout<<node->value->first<<"->("<<"null"<<","<<node->right->value->first<<")"<<"\n";
 			print(node->left);
 			print(node->right);
+		}
+
+		void deleteTree()
+		{
+			deleteTree(root);
+			root = nullptr;
 		}
 
 		void deleteTree(Node *node)
@@ -254,9 +277,7 @@ public:
 				{
 					Node *smallest = findSmallest(node->right);
 
-					auto *ptr = const_cast<key_type *>(&node->value.first);
-					*ptr = smallest->value.first;
-					node->value.second = smallest->value.second;
+					std::swap( node->value, smallest->value);
 					node->right = deleteNode(node->right, smallest->getKey());
 				}
 				else // 1 or 0 children
@@ -311,8 +332,7 @@ public:
 	{
 		if(this != &other)
 		{
-			deleteTree(root);
-			root = nullptr;
+			deleteTree();
 			for(auto elem : other)
 				root = insert(root, elem);
 		}
@@ -323,8 +343,7 @@ public:
 	{
 		if(this != &other)
 		{
-			deleteTree(root);
-			root = nullptr;
+			deleteTree();
 			size = other.size;
 			root = other.root;
 			other.size = 0;
@@ -377,23 +396,23 @@ public:
 
 		Node *node = root;
 		std::stack<Node*> up;
-		while(node->value.first != key)
+		while(node->value->first != key)
 		{
 			up.push(node);
-			if(key < node->value.first)
+			if(key < node->value->first)
 			{
 				if(node->left)
 					node = node->left;
 				else
-					return cend();
+					return ConstIterator(root, nullptr, up);
 			}
 
-			if(key > node->value.first)
+			if(key > node->value->first)
 			{
 				if(node->right)
 					node = node->right;
 				else
-					return cend();
+					return ConstIterator(root, nullptr, up);
 			}
 		}
 		auto it = ConstIterator(root, node, up);
@@ -432,17 +451,11 @@ public:
 		if(size != other.size )
 			return false;
 
-		for(auto elem : *this)
-		{
-			auto it = other.find(elem.first);
-			auto endIt = other.end();
-			if(it == endIt || elem != *it)
-				return false;
-		}
+		auto endIt = end();
 		for(auto elem : other)
 		{
 			auto it = find(elem.first);
-			auto endIt = end();
+
 			if(it == endIt || elem != *it)
 				return false;
 		}
@@ -510,11 +523,28 @@ public:
 
 	friend class TreeMap;
 
-
 private:
 	Node *root;
 	Node *current;
 	std::stack<Node*> up;
+
+	void goToMinNode()
+	{
+		while(current->left)
+		{
+			up.push(current);
+			current = current->left;
+		}
+	}
+
+	void goToMaxNode()
+	{
+		while(current->right != nullptr)
+		{
+			up.push(current);
+			current = current->right;
+		}
+	}
 
 public:
 	ConstIterator(Node *root, Node *current, std::stack<Node*> &up)
@@ -563,30 +593,27 @@ public:
 			return *this;
 		}
 
-		if(current->right != nullptr) //has right son
+		else if(current->hasRightChild() ) //has right son
 		{
 			up.push(current);
-			current = current->right->min();
+			current = current->right;
+			goToMinNode();
 			return *this;
 		}
 
-		if(current->right == nullptr) //doesnt have right son, must travel up until met greater
+		else //doesnt have right son, must travel up until meet greater
 		{
 			Node *temp = current;
 			current = up.top();
 			up.pop();
-			while( temp == current->right && !up.empty() ) //while temp is bigger and stack isn't empty
+			while( temp != current->left ) //while temp is bigger go up and change current into parent
 			{
 				temp = current;
 				current = up.top();
 				up.pop();
 			}
-			if( current == root && temp->getKey() > current->getKey() ) //we travel from right side and not found bigger
-				current = nullptr;
-
 			return *this;
 		}
-		return *this;
 	}
 
 	const ConstIterator operator++(int)
@@ -609,24 +636,24 @@ public:
 			return *this;
 		}
 
-		if(current->left != nullptr)
+		if(current->hasLeftChild() )
 		{
 			up.push(current);
-			current = current->left->max();
+			current = current->left;
+			goToMaxNode();
 			return *this;
 		}
 		else
 		{
-			Node *temp = current;
-			while(temp != current->left)
+			Node *temp;
+			do //while temp is bigger go up and change current into parent
 			{
 				temp = current;
 				current = up.top();
 				up.pop();
-			}
+			}while(temp != current->right );
 			return *this;
 		}
-
 	}
 
 	const ConstIterator operator--(int)
@@ -643,7 +670,7 @@ public:
 		if(current == nullptr)
 			throw std::out_of_range("out of range");
 
-		return current->value;
+		return *(current->value);
 	}
 
 	pointer operator->() const
@@ -660,8 +687,6 @@ public:
 	{
 		return !(*this == other);
 	}
-
-
 };
 
 template<typename KeyType, typename ValueType>
@@ -715,7 +740,5 @@ public:
 		return const_cast<reference>(ConstIterator::operator*());
 	}
 };
-
 }
-
 #endif /* AISDI_MAPS_MAP_H */
