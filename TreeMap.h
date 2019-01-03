@@ -31,15 +31,28 @@ public:
 	using const_iterator = ConstIterator;
 
 public:
-	struct Node
+	class Node
 	{
+		friend class TreeMap;
 	private:
 		value_type value{};
 		Node *left{nullptr};
 		Node *right{nullptr};
 		int height{1};
 
-		friend class TreeMap;
+		bool hasBothChildren() const
+		{ return left != nullptr && right != nullptr; }
+
+		bool hasRightChild() const
+		{ return right != nullptr; }
+
+		bool hasLeftChild() const
+		{ return left != nullptr; }
+
+		int max(int a, int b)
+		{
+			return a > b ? a : b;
+		}
 
 	public:
 
@@ -51,22 +64,40 @@ public:
 			value = other.value;
 			return *this;
 		}
+
 		const key_type &getKey() const
 		{
 			return value.first;
 		}
 
-		int getHeight()
+		void updateHeight()
 		{
-			if (this == nullptr)
-				return 0;
+			if( hasBothChildren() )
+				this->height = 1 + max( this->left->height, this->right->height );
 
-			return this->height;
+			else if( hasLeftChild() )
+				this->height = 1 + this->left->height;
+
+			else if( hasRightChild() )
+				this->height = 1 + this->right->height;
+
+			else //doesn't have children
+				this->height = 1;
 		}
 
 		int getBalanceFactor()
 		{
-			return this->left->getHeight() - this->right->getHeight();
+			if(hasBothChildren() )
+				return this->left->height - this->right->height;
+
+			else if( hasLeftChild() )
+				return this->left->height;
+
+			else if ( hasRightChild() )
+				return -1*this->right->height;
+
+			else //doesn't have children
+				return 0;
 		}
 
 		Node* max()
@@ -80,36 +111,32 @@ public:
 		Node* min()
 		{
 			Node *temp = this;
-			while(temp->left)
+			while (temp->left)
 				temp = temp->left;
 			return temp;
 		}
-	};
+
+
+	};//node class
 
 		size_t size{0};
 		Node *root{nullptr};
 
-		int max(int a, int b)
+		void print(Node *node)
 		{
-			return a > b ? a : b;
-		}
+			if(node == nullptr)
+				return;;
 
-		void updateNodeHeight(Node *node)
-		{
-			node->height = 1 + max(getHeight(node->left), getHeight(node->right));
-		}
-
-		int getHeight(Node *node)
-		{
-			if (node == nullptr)
-				return 0;
-
-			return node->height;
-		}
-
-		int getBalanceFactor(Node *node)
-		{
-			return getHeight(node->left) - getHeight(node->right);
+			if(node->left == nullptr && node->right == nullptr)
+				std::cout<<node->value.first<<"->("<<"null"<<","<<"null"<<")"<<"\n";
+			else if(node->left != nullptr && node->right != nullptr)
+				std::cout<<node->value.first<<"->("<<node->left->value.first<<","<<node->right->value.first<<")"<<"\n";
+			else if(node->left != nullptr)
+				std::cout<<node->value.first<<"->("<<node->left->value.first<<","<<"null"<<")"<<"\n";
+			else
+				std::cout<<node->value.first<<"->("<<"null"<<","<<node->right->value.first<<")"<<"\n";
+			print(node->left);
+			print(node->right);
 		}
 
 		void deleteTree(Node *node)
@@ -139,8 +166,8 @@ public:
 			a->right = b->left;
 			b->left = a;
 
-			updateNodeHeight(a);
-			updateNodeHeight(b);
+			a->updateHeight();
+			b->updateHeight();
 
 			return b;
 		}
@@ -152,8 +179,8 @@ public:
 			a->left = b->right;
 			b->right = a;
 
-			updateNodeHeight(a);
-			updateNodeHeight(b);
+			a->updateHeight();
+			b->updateHeight();
 
 			return b;
 		}
@@ -177,35 +204,36 @@ public:
 				++size;
 				return (new Node{value});
 			}
-
 			key_type key = value.first;
-			if (key < (node->getKey()) ) //search proper place
+
+			if (key < node->getKey() ) //search proper place
 				node->left = insert(node->left, value);
 			else
 				node->right = insert(node->right, value);
 
-			updateNodeHeight(node); //update height of node
+			node->updateHeight(); //update height of node
 
-			int bf = getBalanceFactor(node); //get node balance factor
+			return performRotation(node);
+		}
 
-			//if bf<-1 || bf>1 we must do a rotation
+		Node* performRotation(Node *node)
+		{
+			int bf = node->getBalanceFactor();
 
-			if (bf > 1 && key < node->left->getKey())
-				return rotateLL(node);
-
-			if (bf > 1 && key > node->left->getKey())
+			if(bf > 1) //left child is heavier
 			{
-				node->left = rotateRR(node->left);
-				return rotateLL(node);
+				if(node->left->getBalanceFactor() > 0 ) // LL case
+					return rotateLL(node);
+				else
+					return rotateLR(node);  // LR case
 			}
 
-			if (bf < -1 && key > node->right->getKey())
-				return rotateRR(node);
-
-			if (bf < -1 && key < node->right->getKey())
+			if(bf < -1) //right child is heavier
 			{
-				node->right = rotateLL(node->right);
-				return rotateRR(node);
+				if(node->right->getBalanceFactor() < 0) // RR case //key > node->right->getKey()
+					return rotateRR(node);
+				else
+					return rotateRL(node); // RL case
 			}
 
 			return node;
@@ -218,54 +246,36 @@ public:
 
 			if (key < node->getKey())
 				node->left = deleteNode(node->left, key);
-			else if (key > node->getKey())
+			else if(key > node->getKey())
 				node->right = deleteNode(node->right, key);
 			else
 			{
-				if (node->left == nullptr || node->right == nullptr) // 0 or 1 children
-				{
-					Node *temp = node;
-					if (node->left != nullptr)
-						node = node->left;
-					else
-						node = node->right;
-
-					delete temp;
-				}
-				else // 2 children
+				if( node->hasBothChildren() ) // 2 children
 				{
 					Node *smallest = findSmallest(node->right);
 
 					auto *ptr = const_cast<key_type *>(&node->value.first);
 					*ptr = smallest->value.first;
 					node->value.second = smallest->value.second;
-
 					node->right = deleteNode(node->right, smallest->getKey());
+				}
+				else // 1 or 0 children
+				{
+					Node *temp = node;
+					if( node->hasLeftChild() )
+						node = node->left;
+					else
+						node = node->right;
+
+					delete temp;
 				}
 				--size;
 			}
 			if (node == nullptr)
 				return nullptr;
 
-			updateNodeHeight(node);
-
-			int bf = getBalanceFactor(node);
-			if(bf < -1)
-			{
-				if(getBalanceFactor(node->right) < 0)
-					return  rotateRR(node);
-				else
-					return  rotateRL(node);
-			}
-			else if (bf > 1)
-			{
-				if(getBalanceFactor(node->left) > 0)
-					return rotateLL(node);
-				else
-					return rotateLR(node);
-			}
-
-			return node;
+			node->updateHeight();
+			return performRotation(node);
 		}
 
 public:

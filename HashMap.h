@@ -32,10 +32,11 @@ public:
 	using iterator = Iterator;
 	using const_iterator = ConstIterator;
 
+private:
+
 	size_t buckets = DEF_CAPACITY;
 	size_t addedElements = 0;
-	std::vector< std::list<value_type> >table;
-
+	std::vector< std::list<value_type > >table;
 
 	void insert(value_type value)
 	{
